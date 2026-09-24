@@ -1,0 +1,270 @@
+1. Identity & Sign-In Investigations
+1.1 Successful Sign-In Events (Detailed View)
+Purpose
+Used to investigate successful sign-ins with full contextual information such as IP, location, user agent, and conditional access state.
+
+Typical use cases
+
+Validate suspicious sign-ins
+
+Review user activity for incident timelines
+
+
+
+SigninLogs
+| where TimeGenerated > ago(90d)
+| where ResultType == 0
+| where * contains ""
+| project TimeGenerated, OriginalRequestId, IPAddress, AppDisplayName, AuthenticationRequirement, ClientAppUsed, ConditionalAccessStatus, UserAgent, Location, LocationDetails
+
+1.2 Sign-In Result Types Overview
+Purpose
+Provides a high level overview of authentication outcomes for interactive sign-ins.
+
+Typical use cases
+
+Identify spikes in failed sign-ins
+
+Detect authentication issues
+
+
+
+SigninLogs
+| where TimeGenerated > ago(90d)
+| where * contains ""
+| summarize count() by ResultType
+| render barchart
+
+1.3 Sign-In Volume by Application
+Purpose
+Shows which applications are most frequently used for successful sign-ins.
+
+Typical use cases
+
+Application usage analysis
+
+Identify unexpected app access
+
+
+
+SigninLogs
+| where TimeGenerated > ago(90d)
+| where ResultType == 0
+| where * contains ""
+| summarize count() by AppDisplayName
+
+1.4 Sign-In Activity Over Time (Downtime Detection)
+Purpose
+Visualizes sign-in volume over time to detect outages, disruptions, or abnormal drops.
+
+Typical use cases
+
+Correlate sign-in failures with change events
+
+
+
+SigninLogs
+| where TimeGenerated > ago(30d)
+| where * contains ""
+| summarize SignInCount = count() by bin(TimeGenerated, 30m)
+| render timechart with (kind=unstacked)
+
+1.5 Sign-Ins by IP Address and Result Type
+Purpose
+Highlights authentication behavior per source IP, including success and failure patterns.
+
+Typical use cases
+
+Brute force detection
+
+IP reputation analysis
+
+Incident scoping
+
+
+
+SigninLogs
+| where * contains ""
+| where TimeGenerated > ago(90d)
+| summarize count() by IPAddress, ResultType
+| render barchart
+| order by count_ desc
+
+1.6 Sign-Ins by Country and IP
+Purpose
+Provides geographic insight into successful sign-ins.
+
+Typical use cases
+
+Impossible travel analysis
+
+Geo based threat detection
+
+
+
+SigninLogs
+| where * contains ""
+| where TimeGenerated > ago(90d)
+| where ResultType == "0"
+| summarize count() by Location, IPAddress
+| render barchart
+| order by count_ desc
+
+1.7 Simplified Sign-In Context View
+Purpose
+Lightweight version for quick checks without application or CA details.
+
+Typical use cases
+
+Timeline enrichment
+
+User behavior validation
+
+
+
+SigninLogs
+| where TimeGenerated > ago(90d)
+| where * contains ""
+| where ResultType == "0"
+| project TimeGenerated, Location, IPAddress, LocationDetails, ResultType, UserAgent
+
+2. Non-Interactive Sign-Ins
+2.1 Service and Background Sign-In Activity
+Purpose
+Analyzes non-interactive sign-ins such as service principals and background token refreshes.
+
+Typical use cases
+
+Detect abused service accounts
+
+Identify automation anomalies
+
+Investigate token misuse
+
+
+
+workspace("prd-glb-mgmt-prod-sntl01-la01").AADNonInteractiveUserSignInLogs
+| where TimeGenerated >= ago(5d)
+| where UserPrincipalName contains ""
+| summarize count() by Location, bin(TimeGenerated, 1h)
+| render timechart
+
+3. Audit Logs & Privileged Access
+3.1 General Audit Log Search
+Purpose
+Generic audit log search across all Azure AD operations.
+
+Typical use cases
+
+Change tracking
+
+Incident scoping
+
+Compliance investigations
+
+
+
+AuditLogs
+| where TimeGenerated > ago(90d)
+| where * contains ""
+
+3.2 PIM Invitation Activities
+Purpose
+Tracks invitation related actions in Privileged Identity Management.
+
+Typical use cases
+
+Review role invitation abuse
+
+Validate onboarding processes
+
+Privileged access audits
+
+
+
+AuditLogs
+| where TimeGenerated > ago(90d)
+| where * contains ""
+| where OperationName contains "invite"
+| extend initiatedByUser = parse_json(InitiatedBy).user.userPrincipalName
+
+3.3 PIM Role Activation Results and Reasons
+Purpose
+Shows role assignment outcomes including approval result and justification.
+
+Typical use cases
+
+Privileged access reviews
+
+Approval workflow audits
+
+Incident root cause analysis
+
+
+
+AuditLogs
+| where * contains ""
+| where OperationName contains "Add member to role completed"
+| extend TargetResourcesParsed = parse_json(TargetResources)
+| extend Role = TargetResourcesParsed[0].displayName
+| project TimeGenerated, Category, Role, ResultDescription, ResultReason, Result
+
+3.4 Owner or Member Removal Events
+Purpose
+Tracks removal of owners or members from groups and applications.
+
+Typical use cases
+
+Detect unauthorized privilege removal
+
+Insider threat investigations
+
+Compliance monitoring
+
+
+
+AuditLogs
+| where * contains ""
+| where OperationName contains "Remove member from group" or OperationName contains "Remove owner from application"
+
+4. Infrastructure & Endpoint Security
+4.1 New SSH Source IP Detection
+Purpose
+Identifies public IP addresses successfully authenticating via SSH.
+
+Typical use cases
+
+Detect unauthorized SSH access
+
+Incident validation
+
+Threat hunting on Linux endpoints
+
+
+
+Syslog
+| where Facility contains "auth" and ProcessName =~ "sshd"
+| where SyslogMessage has "Accepted"
+| extend SourceIP = extract("(([0-9]{1,3})\\.([0-9]{1,3})\\.([0-9]{1,3})\\.(([0-9]{1,3})))", 1, SyslogMessage)
+| where isnotempty(SourceIP)
+| where ipv4_is_private(SourceIP) == false
+| where HostName contains ""
+| summarize count() by SourceIP
+
+5. Log Data Health & Availability
+5.1 Table Availability and Data Volume Check
+Purpose
+Validates which tables contain data and how much, useful for ingestion troubleshooting.
+
+Typical use cases
+
+Verify connector health
+
+Identify missing log sources
+
+
+
+union withsource = SrcTable *
+| where TimeGenerated >= ago(90d)
+| summarize RowCount = count() by TableName = SrcTable
+| sort by RowCount desc
