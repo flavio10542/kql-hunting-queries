@@ -1,0 +1,5 @@
+SigninLogs
+| where TimeGenerated > ago(90d)
+| where ResultType == 0
+| where * contains ""
+| summarize count() by AppDisplayName
