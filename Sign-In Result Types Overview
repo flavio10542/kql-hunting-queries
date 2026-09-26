@@ -1,3 +1,14 @@
+Purpose
+Provides a high level overview of authentication outcomes for interactive sign-ins.
+
+Typical use cases
+
+Identify spikes in failed sign-ins
+
+Detect authentication issues
+
+
+
 SigninLogs
 | where TimeGenerated > ago(90d)
 | where * contains ""
