@@ -1,3 +1,11 @@
+Purpose
+Used to investigate successful sign-ins with full contextual information such as IP, location, user agent, and conditional access state.
+Typical use cases
+Validate suspicious sign-ins
+Review user activity for incident timelines
+
+
+
 SigninLogs
 | where TimeGenerated > ago(90d)
 | where ResultType == 0
