@@ -1,3 +1,14 @@
+Purpose
+Shows which applications are most frequently used for successful sign-ins.
+
+Typical use cases
+
+Application usage analysis
+
+Identify unexpected app access
+
+
+
 SigninLogs
 | where TimeGenerated > ago(90d)
 | where ResultType == 0
